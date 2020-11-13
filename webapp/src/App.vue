@@ -71,7 +71,9 @@ export default {
   },
   methods: {
     async loadModel() {
-      this.model = await tf.loadLayersModel("http://localhost:5555/model.json");
+      this.model = await tf.loadLayersModel(
+        "http://localhost:5555/inceptionv3_simple/model.json"
+      );
     },
     onImageChosen(value) {
       const fr = new FileReader();
