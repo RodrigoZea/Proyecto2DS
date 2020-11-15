@@ -1,7 +1,10 @@
 <template>
   <div id="app" class="container">
-    <b-loading is-full-page v-model="isLoading" :can-cancel="false"></b-loading>
-    <img alt="tf logo" src="./assets/tf.png" />
+    <div class="columns">
+      <div class="column"><img alt="rsna logo" src="./assets/rsna.png" /></div>
+      <div class="column is-narrow"><h1 class="title">+</h1></div>
+      <div class="column"><img alt="tf logo" src="./assets/tf.png" /></div>
+    </div>
     <section class="hero">
       <div class="hero-body">
         <div class="container">
@@ -40,7 +43,7 @@
                 <b-button
                   class="custom-margin"
                   expanded
-                  type="is-success"
+                  type="is-primary"
                   @click="modelPredict"
                   >Realizar Prediccion</b-button
                 >
@@ -71,7 +74,7 @@
                   <b-button
                     class="custom-margin"
                     expanded
-                    type="is-success"
+                    type="is-primary"
                     @click="reset"
                     >Reiniciar</b-button
                   >
@@ -106,7 +109,6 @@ export default {
       chosenImageData: null,
       currentPredictionYears: null,
       currentPredictionMonths: null,
-      isLoading: false,
       activeStep: 0,
       selectedModelRadio: "simple",
     };
