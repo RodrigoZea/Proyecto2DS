@@ -14,42 +14,85 @@
       </div>
     </section>
     <section class="section">
-      <div class="container">
-        <b-field class="file is-primary" :class="{ 'has-name': !!chosenImage }">
-          <b-upload
-            v-model="chosenImage"
-            class="file-label"
-            @input="onImageChosen"
-          >
-            <span class="file-cta">
-              <b-icon class="file-icon" icon="upload"></b-icon>
-              <span class="file-label">Escoger imagen de radiografia</span>
-            </span>
-            <span class="file-name" v-if="chosenImage">
-              {{ chosenImage.name }}
-            </span>
-          </b-upload>
-        </b-field>
-      </div>
-    </section>
-    <section class="section">
-      <div v-if="chosenImage">
-        <div v-if="currentPredictionYears">
-          Predicción: {{ currentPredictionYears }} años,
-          {{ currentPredictionMonths }} meses
-        </div>
-        <div>
-          <img ref="img" :src="chosenImage" width="256" height="256" />
-        </div>
-        <div class="buttons">
-          <b-button type="is-primary" @click="modelPredict" :loading="loading"
-            >Realizar Prediccion</b-button
-          >
-        </div>
+      <div class="block">
+        <b-steps v-model="activeStep" animated rounded has-navigation>
+          <b-step-item step="1" label="Modelo">
+            <h1 class="title has-text-centered">Selecciona un Modelo</h1>
+            <div class="block">
+              <b-radio v-model="selectedModelRadio" native-value="simple"
+                >Simple</b-radio
+              >
+              <b-radio v-model="selectedModelRadio" native-value="conv"
+                >Red Convolucional</b-radio
+              >
+              <b-radio v-model="selectedModelRadio" native-value="v3"
+                >InceptionV3</b-radio
+              >
+            </div>
+          </b-step-item>
+
+          <b-step-item step="2" label="Radiografia">
+            <div class="container">
+              <div v-if="chosenImage.name">
+                <img ref="img" :src="chosenImage" width="256" height="256" />
+              </div>
+              <div class="buttons" v-if="chosenImage.name">
+                <b-button
+                  class="custom-margin"
+                  expanded
+                  type="is-success"
+                  @click="modelPredict"
+                  >Realizar Prediccion</b-button
+                >
+              </div>
+              <b-field class="file">
+                <b-upload v-model="chosenImage" @input="onImageChosen" expanded>
+                  <a class="button is-primary is-fullwidth custom-margin">
+                    <b-icon icon="upload"></b-icon>
+                    <span>Escoger Imagen de Radiografía</span>
+                  </a>
+                </b-upload>
+              </b-field>
+            </div>
+          </b-step-item>
+
+          <b-step-item step="3" label="Predicción">
+            <div class="container custom-margin">
+              <b-message
+                type="is-success"
+                title="Resultado de Predicción"
+                has-icon
+              >
+                <h2 class="title">
+                  {{ currentPredictionYears }} años,
+                  {{ currentPredictionMonths }} meses
+                </h2>
+                <div class="buttons">
+                  <b-button
+                    class="custom-margin"
+                    expanded
+                    type="is-success"
+                    @click="reset"
+                    >Reiniciar</b-button
+                  >
+                </div>
+              </b-message>
+            </div>
+          </b-step-item>
+        </b-steps>
       </div>
     </section>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.custom-margin {
+  margin: {
+    left: 25%;
+    right: 25%;
+  }
+}
+</style>
 
 <script>
 import * as tf from "@tensorflow/tfjs";
@@ -59,11 +102,13 @@ export default {
   data() {
     return {
       model: false,
-      chosenImage: null,
+      chosenImage: {},
       chosenImageData: null,
       currentPredictionYears: null,
       currentPredictionMonths: null,
       isLoading: false,
+      activeStep: 0,
+      selectedModelRadio: "simple",
     };
   },
   mounted() {
@@ -82,7 +127,7 @@ export default {
       }.bind(this);
       fr.readAsDataURL(value);
     },
-    preprocessImage(pixelData) {
+    v3PreprocessImage(pixelData) {
       const targetDim = 256;
       const edgeSize = 2;
       const resizeDim = targetDim - edgeSize * 2;
@@ -114,51 +159,66 @@ export default {
           .pad(padSquare, 255.0);
 
         // scale it down to smaller than target
-        tensor = tf.image
-          .resizeBilinear(tensor, [resizeDim, resizeDim])
-          // pad it with blank pixels along the edges (to better match the training data)
-          .pad(
-            [
-              [edgeSize, edgeSize],
-              [edgeSize, edgeSize],
-              [0, 0],
-            ],
-            255.0
-          );
+        tensor = tf.image.resizeBilinear(tensor, [resizeDim, resizeDim]).pad(
+          [
+            [edgeSize, edgeSize],
+            [edgeSize, edgeSize],
+            [0, 0],
+          ],
+          255.0
+        );
 
         // normalizar datos y convertir a lo que espera nuestro modelo,
         // los pixeles deben ir en un rango de [-1, 1]
         tensor = tensor.toFloat().div(127.5).sub(tf.scalar(1.0));
 
-        // Reshape again to fit training model [N, 28, 28, 1]
-        // where N = 1 in this case
         return tensor.expandDims(0);
       });
     },
+    async v3ModelPredict() {
+      // constantes de nuestro dataset
+      const boneage_div = 82.36404279879235;
+      const boneage_mean = 127.3207517246848;
+
+      // preprocesar imagen
+      let tensor = this.v3PreprocessImage(this.$refs.img, 1);
+
+      // obtener zscore
+      const pred_zscore = await this.model.predict(tensor).data();
+
+      // formula para obtener edad en meses
+      return boneage_div * pred_zscore[0] + boneage_mean;
+    },
     async modelPredict() {
       if (this.chosenImage) {
-        // loading
-        this.isLoading = true;
+        // loading on
+        const l = this.$buefy.loading.open();
+        let pred;
 
-        // constantes de nuestro dataset
-        const boneage_div = 82.36404279879235;
-        const boneage_mean = 127.3207517246848;
-
-        // preprocesar imagen
-        let tensor = this.preprocessImage(this.$refs.img, 1);
-
-        // obtener zscore
-        const pred_zscore = await this.model.predict(tensor).data();
-
-        // formula para obtener edad en meses
-        const pred = boneage_div * pred_zscore[0] + boneage_mean;
+        if (this.selectedModelRadio == "simple") {
+          return;
+        } else if (this.selectedModelRadio == "conv") {
+          return;
+        } else if (this.selectedModelRadio == "v3") {
+          pred = await this.v3ModelPredict();
+        }
 
         // para mostrar los datos en un formato mas entendible
         this.currentPredictionYears = Math.floor(pred / 12);
         this.currentPredictionMonths = Math.floor(pred % 12);
 
-        this.isLoading = false;
+        // ir a ultimo paso para mostrar resultado de prediccion
+        this.activeStep = 2;
+
+        // loading off
+        l.close();
       }
+    },
+    reset() {
+      this.chosenImage = {};
+      this.currentPredictionYears = null;
+      this.currentPredictionMonth = null;
+      this.activeStep = 0;
     },
   },
 };
