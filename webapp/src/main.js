@@ -5,6 +5,7 @@ import './scss/styles.scss';
 
 Vue.use(Buefy)
 Vue.config.productionTip = false;
+Vue.component('custom-bar-chart', require('./BarChart.vue').default);
 
 new Vue({
   render: h => h(App),

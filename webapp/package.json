@@ -11,8 +11,11 @@
     "@tensorflow/tfjs": "^2.7.0",
     "aws-sdk": "^2.789.0",
     "buefy": "^0.9.4",
+    "chart.js": "^2.9.4",
+    "chartjs": "^0.3.24",
     "core-js": "^3.6.5",
-    "vue": "^2.6.11"
+    "vue": "^2.6.11",
+    "vue-chartjs": "^3.5.1"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.0",

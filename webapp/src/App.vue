@@ -31,10 +31,13 @@
               <b-radio v-model="selectedModelRadio" native-value="v3"
                 >InceptionV3</b-radio
               >
+              <b-radio v-model="selectedModelRadio" native-value="all"
+                >Todos</b-radio
+              >
             </div>
           </b-step-item>
 
-          <b-step-item step="2" label="Radiografia">
+          <b-step-item step="2" label="Radiografía">
             <div class="container">
               <div v-if="chosenImage.name">
                 <img ref="img" :src="chosenImage" width="256" height="256" />
@@ -59,7 +62,7 @@
             </div>
           </b-step-item>
 
-          <b-step-item step="3" label="Predicción">
+          <b-step-item step="3" label="Resultados">
             <div class="container custom-margin">
               <b-message
                 type="is-success"
@@ -80,6 +83,9 @@
                   >
                 </div>
               </b-message>
+              <div class="container">
+                <custom-bar-chart :chart-data="chartData" />
+              </div>
             </div>
           </b-step-item>
         </b-steps>
@@ -111,6 +117,9 @@ export default {
       currentPredictionMonths: null,
       activeStep: 0,
       selectedModelRadio: "simple",
+      boneageDiv: 82.36404279879235,
+      boneageMean: 127.3207517246848,
+      chartData: {},
     };
   },
   mounted() {
@@ -178,10 +187,6 @@ export default {
       });
     },
     async v3ModelPredict() {
-      // constantes de nuestro dataset
-      const boneage_div = 82.36404279879235;
-      const boneage_mean = 127.3207517246848;
-
       // preprocesar imagen
       let tensor = this.v3PreprocessImage(this.$refs.img, 1);
 
@@ -189,7 +194,7 @@ export default {
       const pred_zscore = await this.model.predict(tensor).data();
 
       // formula para obtener edad en meses
-      return boneage_div * pred_zscore[0] + boneage_mean;
+      return this.boneageDiv * pred_zscore[0] + this.boneageMean;
     },
     async modelPredict() {
       if (this.chosenImage) {
@@ -198,11 +203,58 @@ export default {
         let pred;
 
         if (this.selectedModelRadio == "simple") {
-          return;
+          this.chartData = {
+            labels: ["Red Neuronal Simple"],
+            datasets: [
+              {
+                label: "Error Promedio en Meses",
+                backgroundColor: "#03045e",
+                data: [55],
+                barThickness: 50,
+              },
+            ],
+          };
         } else if (this.selectedModelRadio == "conv") {
-          return;
+          this.chartData = {
+            labels: ["Red Convolucional Propia"],
+            datasets: [
+              {
+                label: "Error Promedio en Meses",
+                backgroundColor: "#03045e",
+                data: [16],
+                barThickness: 50,
+              },
+            ],
+          };
         } else if (this.selectedModelRadio == "v3") {
           pred = await this.v3ModelPredict();
+          this.chartData = {
+            labels: ["InceptionV3"],
+            datasets: [
+              {
+                label: "Error Promedio en Meses",
+                backgroundColor: "#03045e",
+                data: [11],
+                barThickness: 50,
+              },
+            ],
+          };
+        } else if (this.selectedModelRadio == "all") {
+          this.chartData = {
+            labels: [
+              "Red Neuronal Simple",
+              "Red Convolucional Propia",
+              "InceptionV3",
+            ],
+            datasets: [
+              {
+                label: "Error Promedio en Meses",
+                backgroundColor: ["#03045e", "#023e8a", "#0077b6"],
+                data: [55, 16, 11],
+                barThickness: 50,
+              },
+            ],
+          };
         }
 
         // para mostrar los datos en un formato mas entendible
