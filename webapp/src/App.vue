@@ -1,5 +1,6 @@
 <template>
   <div id="app" class="container">
+    <b-loading is-full-page v-model="isLoading" :can-cancel="false"></b-loading>
     <div class="columns">
       <div class="column"><img alt="rsna logo" src="./assets/rsna.png" /></div>
       <div class="column is-narrow"><h1 class="title">+</h1></div>
@@ -39,10 +40,10 @@
 
           <b-step-item step="2" label="Radiografía">
             <div class="container">
-              <div v-if="chosenImage.name">
+              <div v-if="chosenImage">
                 <img ref="img" :src="chosenImage" width="256" height="256" />
               </div>
-              <div class="buttons" v-if="chosenImage.name">
+              <div class="buttons" v-if="chosenImage">
                 <b-button
                   class="custom-margin"
                   expanded
@@ -52,7 +53,12 @@
                 >
               </div>
               <b-field class="file">
-                <b-upload v-model="chosenImage" @input="onImageChosen" expanded>
+                <b-upload
+                  v-model="chosenImage"
+                  @input="onImageChosen"
+                  expanded
+                  :native="true"
+                >
                   <a class="button is-primary is-fullwidth custom-margin">
                     <b-icon icon="upload"></b-icon>
                     <span>Escoger Imagen de Radiografía</span>
@@ -64,27 +70,24 @@
 
           <b-step-item step="3" label="Resultados">
             <div class="container custom-margin">
-              <b-message
-                type="is-success"
-                title="Resultado de Predicción"
-                has-icon
+              <div
+                v-for="i in predictionResults"
+                :key="i.name"
+                class="result-margin"
               >
-                <h2 class="title">
-                  {{ currentPredictionYears }} años,
-                  {{ currentPredictionMonths }} meses
-                </h2>
-                <div class="buttons">
-                  <b-button
-                    class="custom-margin"
-                    expanded
-                    type="is-primary"
-                    @click="reset"
-                    >Reiniciar</b-button
-                  >
-                </div>
-              </b-message>
+                <prediction-result :data="i" />
+              </div>
               <div class="container">
                 <custom-bar-chart :chart-data="chartData" />
+              </div>
+              <div class="buttons">
+                <b-button
+                  class="custom-margin"
+                  expanded
+                  type="is-primary"
+                  @click="reset"
+                  >Reiniciar</b-button
+                >
               </div>
             </div>
           </b-step-item>
@@ -101,6 +104,13 @@
     right: 25%;
   }
 }
+
+.result-margin {
+  margin: {
+    top: 8px;
+    bottom: 8px;
+  }
+}
 </style>
 
 <script>
@@ -110,26 +120,35 @@ export default {
   name: "App",
   data() {
     return {
-      model: false,
-      chosenImage: {},
-      chosenImageData: null,
-      currentPredictionYears: null,
-      currentPredictionMonths: null,
+      simpleModel: false,
+      convModel: false,
+      v3Model: false,
+      chosenImage: null,
+      predictionResults: [],
       activeStep: 0,
       selectedModelRadio: "simple",
       boneageDiv: 82.36404279879235,
       boneageMean: 127.3207517246848,
       chartData: {},
+      isLoading: false,
     };
   },
   mounted() {
-    this.loadModel();
+    this.loadModels();
   },
   methods: {
-    async loadModel() {
-      this.model = await tf.loadLayersModel(
+    async loadModels() {
+      const l = this.$buefy.loading.open();
+      this.simpleModel = await tf.loadLayersModel(
+        "http://localhost:5555/simple_model/model.json"
+      );
+      this.convModel = await tf.loadLayersModel(
+        "http://localhost:5555/conv_model/model.json"
+      );
+      this.v3Model = await tf.loadLayersModel(
         "http://localhost:5555/inceptionv3_simple/model.json"
       );
+      l.close();
     },
     onImageChosen(value) {
       const fr = new FileReader();
@@ -138,7 +157,7 @@ export default {
       }.bind(this);
       fr.readAsDataURL(value);
     },
-    v3PreprocessImage(pixelData) {
+    generalPreprocessing(pixelData) {
       const targetDim = 256;
       const edgeSize = 2;
       const resizeDim = targetDim - edgeSize * 2;
@@ -179,30 +198,57 @@ export default {
           255.0
         );
 
-        // normalizar datos y convertir a lo que espera nuestro modelo,
-        // los pixeles deben ir en un rango de [-1, 1]
-        tensor = tensor.toFloat().div(127.5).sub(tf.scalar(1.0));
-
-        return tensor.expandDims(0);
+        return tensor;
       });
     },
-    async v3ModelPredict() {
+    simpleConvPreprocessing(tensor) {
+      // normalizar datos y convertir a lo que espera nuestro modelo,
+      // los pixeles deben ir en un rango de [0, 1]
+      tensor = tensor.toFloat().div(255);
+      return tensor.expandDims(0);
+    },
+    v3PreprocessImage(tensor) {
+      // normalizar datos y convertir a lo que espera nuestro modelo,
+      // los pixeles deben ir en un rango de [-1, 1]
+      tensor = tensor.toFloat().div(127.5).sub(tf.scalar(1.0));
+      return tensor.expandDims(0);
+    },
+    async simpleModelPredict(tensor) {
+      const pred_zscore = await this.simpleModel.predict(tensor).data();
+
+      return this.boneageDiv * pred_zscore[0] + this.boneageMean;
+    },
+    async convModelPredict(tensor) {
+      const pred_zscore = await this.convModel.predict(tensor).data();
+
+      return this.boneageDiv * pred_zscore[0] + this.boneageMean;
+    },
+    async v3ModelPredict(tensor) {
       // preprocesar imagen
-      let tensor = this.v3PreprocessImage(this.$refs.img, 1);
+      tensor = this.v3PreprocessImage(tensor);
 
       // obtener zscore
-      const pred_zscore = await this.model.predict(tensor).data();
+      const pred_zscore = await this.v3Model.predict(tensor).data();
 
       // formula para obtener edad en meses
       return this.boneageDiv * pred_zscore[0] + this.boneageMean;
     },
     async modelPredict() {
       if (this.chosenImage) {
-        // loading on
-        const l = this.$buefy.loading.open();
+        // preprocesamiento general
+        let tensor = this.generalPreprocessing(this.$refs.img, 1);
         let pred;
 
         if (this.selectedModelRadio == "simple") {
+          tensor = this.simpleConvPreprocessing(tensor);
+          pred = await this.simpleModelPredict(tensor);
+
+          this.predictionResults.push({
+            name: "Red Neuronal Simple",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
           this.chartData = {
             labels: ["Red Neuronal Simple"],
             datasets: [
@@ -215,6 +261,15 @@ export default {
             ],
           };
         } else if (this.selectedModelRadio == "conv") {
+          tensor = this.simpleConvPreprocessing(tensor);
+          pred = await this.convModelPredict(tensor);
+
+          this.predictionResults.push({
+            name: "Red Convolucional",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
           this.chartData = {
             labels: ["Red Convolucional Propia"],
             datasets: [
@@ -227,7 +282,15 @@ export default {
             ],
           };
         } else if (this.selectedModelRadio == "v3") {
-          pred = await this.v3ModelPredict();
+          pred = await this.v3ModelPredict(tensor);
+
+          // para mostrar los datos en un formato mas entendible
+          this.predictionResults.push({
+            name: "InceptionV3",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
           this.chartData = {
             labels: ["InceptionV3"],
             datasets: [
@@ -240,6 +303,32 @@ export default {
             ],
           };
         } else if (this.selectedModelRadio == "all") {
+          // simple model
+          const tensor1 = this.simpleConvPreprocessing(tensor);
+          pred = await this.simpleModelPredict(tensor1);
+          this.predictionResults.push({
+            name: "Red Neuronal Simple",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
+          // conv model
+          pred = await this.convModelPredict(tensor1);
+          this.predictionResults.push({
+            name: "Red Convolucional",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
+          // v3 model
+          pred = await this.v3ModelPredict(tensor);
+          // para mostrar los datos en un formato mas entendible
+          this.predictionResults.push({
+            name: "InceptionV3",
+            years: Math.floor(pred / 12),
+            months: Math.floor(pred % 12),
+          });
+
           this.chartData = {
             labels: [
               "Red Neuronal Simple",
@@ -257,21 +346,14 @@ export default {
           };
         }
 
-        // para mostrar los datos en un formato mas entendible
-        this.currentPredictionYears = Math.floor(pred / 12);
-        this.currentPredictionMonths = Math.floor(pred % 12);
-
         // ir a ultimo paso para mostrar resultado de prediccion
         this.activeStep = 2;
-
-        // loading off
-        l.close();
       }
     },
     reset() {
-      this.chosenImage = {};
-      this.currentPredictionYears = null;
-      this.currentPredictionMonth = null;
+      this.$refs.img.src = null;
+      this.chosenImage = null;
+      this.predictionResults = [];
       this.activeStep = 0;
     },
   },
