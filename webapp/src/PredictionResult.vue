@@ -1,5 +1,5 @@
 <template>
-  <b-message type="is-success" :title="title" has-icon>
+  <b-message type="is-cyanprocess" :title="title" has-icon>
     <h2 class="title">{{ data.years }} años, {{ data.months }} meses</h2>
   </b-message>
 </template>

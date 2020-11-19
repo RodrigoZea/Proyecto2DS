@@ -3,6 +3,9 @@
 
 // Colors
 $primary: #EE7600;
+$platinum: #ECECEC;
+$cyanprocess: #11B5E9;
+$cyanprocess-invert:rgb(17, 233, 53)9;
 
 // Setup $colors to use as bulma classes (e.g. 'is-twitter')
 $colors: mergeColorMaps(
@@ -28,6 +31,10 @@ $colors: mergeColorMaps(
             $primary-invert,
             $primary-light,
             $primary-dark,
+        ),
+        "cyanprocess": (
+            $cyanprocess,
+            $cyanprocess-invert
         ),
         "link": (
             $link,

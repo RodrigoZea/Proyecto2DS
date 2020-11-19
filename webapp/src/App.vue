@@ -9,10 +9,10 @@
     <section class="hero">
       <div class="hero-body">
         <div class="container">
-          <h1 class="title">RSNA Edad Ósea</h1>
+          <h1 class="title">RSNA EDAD ÓSEA</h1>
           <h2 class="subtitle">
-            Rodrigo Zea | Gustavo de Leon | Luis Diego Fernandez | Sebastian
-            Arriola | Luis Carlos Esturban
+            Rodrigo Zea | Gustavo de León | Luis Diego Fernandez | Sebastian
+            Arriola | Luis Carlos Esturbán
           </h2>
         </div>
       </div>
@@ -49,7 +49,7 @@
                   expanded
                   type="is-primary"
                   @click="modelPredict"
-                  >Realizar Prediccion</b-button
+                  >Realizar Predicción</b-button
                 >
               </div>
               <b-field class="file">
@@ -111,6 +111,8 @@
     bottom: 8px;
   }
 }
+
+
 </style>
 
 <script>
@@ -254,7 +256,7 @@ export default {
             datasets: [
               {
                 label: "Error Promedio en Meses",
-                backgroundColor: "#03045e",
+                backgroundColor: "#005DA9",
                 data: [55],
                 barThickness: 50,
               },
@@ -275,7 +277,7 @@ export default {
             datasets: [
               {
                 label: "Error Promedio en Meses",
-                backgroundColor: "#03045e",
+                backgroundColor: "#005DA9",
                 data: [16],
                 barThickness: 50,
               },
@@ -296,7 +298,7 @@ export default {
             datasets: [
               {
                 label: "Error Promedio en Meses",
-                backgroundColor: "#03045e",
+                backgroundColor: "#005DA9",
                 data: [11],
                 barThickness: 50,
               },
@@ -338,7 +340,7 @@ export default {
             datasets: [
               {
                 label: "Error Promedio en Meses",
-                backgroundColor: ["#03045e", "#023e8a", "#0077b6"],
+                backgroundColor: "#005DA9",
                 data: [55, 16, 11],
                 barThickness: 50,
               },
