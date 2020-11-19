@@ -111,8 +111,6 @@
     bottom: 8px;
   }
 }
-
-
 </style>
 
 <script>
@@ -236,6 +234,9 @@ export default {
       return this.boneageDiv * pred_zscore[0] + this.boneageMean;
     },
     async modelPredict() {
+      // limpiar predicciones previas
+      this.predictionResults = [];
+
       if (this.chosenImage) {
         // preprocesamiento general
         let tensor = this.generalPreprocessing(this.$refs.img, 1);
@@ -273,7 +274,7 @@ export default {
           });
 
           this.chartData = {
-            labels: ["Red Convolucional Propia"],
+            labels: ["Red Convolucional"],
             datasets: [
               {
                 label: "Error Promedio en Meses",
@@ -332,11 +333,7 @@ export default {
           });
 
           this.chartData = {
-            labels: [
-              "Red Neuronal Simple",
-              "Red Convolucional Propia",
-              "InceptionV3",
-            ],
+            labels: ["Red Neuronal Simple", "Red Convolucional", "InceptionV3"],
             datasets: [
               {
                 label: "Error Promedio en Meses",
